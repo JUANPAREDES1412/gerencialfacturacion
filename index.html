@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Informe Gerencial IPS Holding CG</title>
+<meta name="description" content="Informe gerencial comparativo de facturación y admisiones — Clínica Dolormed y Redes IMAT.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="bootError" class="boot-error hidden">
+  <div class="boot-error-box">
+    <h2>No se pudo iniciar la aplicación</h2>
+    <p id="bootErrorMsg">Ocurrió un error inesperado.</p>
+    <p class="boot-error-hint">
+      Si abriste este archivo con doble clic (dirección que empieza con <code>file://</code>),
+      algunos navegadores (especialmente Chrome) bloquean el almacenamiento local que usa esta app.
+      Ábrela con un servidor local — revisa la sección "Cómo abrir la app localmente" del README.
+    </p>
+  </div>
+</div>
+
+<div class="app-shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CG</div>
+      <div class="brand-text">
+        <strong>IPS Holding CG</strong>
+        <span>Informe Gerencial</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-ico">◆</span> Panorama general
+      </button>
+      <button class="nav-item" data-view="comparativo">
+        <span class="nav-ico">◆</span> Comparativo de sedes
+      </button>
+      <button class="nav-item" data-view="detalle">
+        <span class="nav-ico">◆</span> Detalle y análisis
+      </button>
+      <button class="nav-item" data-view="cargar">
+        <span class="nav-ico">◆</span> Cargar información
+      </button>
+      <button class="nav-item" data-view="acerca">
+        <span class="nav-ico">◆</span> Acerca del informe
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="storage-mode" id="storageModeIndicator"></div>
+      <div class="org-tree" id="orgTreeStatus"><!-- se llena por JS --></div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main">
+
+    <div id="fileProtocolWarning" class="file-warning hidden">
+      ⚠️ Estás abriendo este archivo directamente desde tu disco (<code>file://</code>). Algunos navegadores bloquean el almacenamiento local en este modo y la app puede no guardar los datos cargados. Para evitarlo, ábrela con un servidor local — ver README, sección "Cómo abrir la app localmente".
+    </div>
+
+    <!-- Barra de filtros globales -->
+    <header class="topbar">
+      <div class="filterbar" id="filterbar">
+        <div class="filter-group">
+          <label>Clínica</label>
+          <div id="fClinica"></div>
+        </div>
+        <div class="filter-group">
+          <label>Sede</label>
+          <div id="fSede"></div>
+        </div>
+        <div class="filter-group">
+          <label>Año</label>
+          <div id="fAnio"></div>
+        </div>
+        <div class="filter-group">
+          <label>Mes</label>
+          <div id="fMes"></div>
+        </div>
+        <div class="filter-group">
+          <label>Desde</label>
+          <input type="date" id="fDesde">
+        </div>
+        <div class="filter-group">
+          <label>Hasta</label>
+          <input type="date" id="fHasta">
+        </div>
+        <div class="filter-group">
+          <label>Tipo de cliente</label>
+          <div id="fCategoria"></div>
+        </div>
+        <div class="filter-group">
+          <label>Clasificación</label>
+          <div id="fClasificacion"></div>
+        </div>
+        <button class="btn btn-ghost" id="btnLimpiarFiltros">Limpiar filtros</button>
+      </div>
+    </header>
+
+    <main class="content" id="content">
+      <!-- ================= VISTA: DASHBOARD ================= -->
+      <section class="view" id="view-dashboard">
+        <div class="view-head">
+          <h1>Panorama general</h1>
+          <p>Los recuadros de abajo son el <strong>total de referencia</strong> de las sedes filtradas. El detalle real — lo admisionado, facturado, radicado y pendiente <strong>de cada sede por separado</strong> — está en la tabla "Resumen por sede".</p>
+        </div>
+
+        <div class="kpi-row" id="kpiRow"></div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Tendencia mensual por sede — admisionado y facturado</h3>
+            <p class="hint">Pasa el cursor sobre cualquier punto para ver el detalle de cada sede filtrada en ese mes.</p>
+            <div class="chart-box tall"><canvas id="chartTendencia"></canvas></div>
+          </div>
+          <div class="card">
+            <h3>Distribución por clasificación de cartera</h3>
+            <div class="chart-box tall"><canvas id="chartClasificacion"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Resumen por sede</h3>
+          <p class="hint">Cada fila es una sede independiente — los valores no se acumulan entre sedes. Incluye la fecha de la última admisión cargada de cada una.</p>
+          <div class="table-wrap">
+            <table class="table" id="tablaResumenSede"></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VISTA: COMPARATIVO ================= -->
+      <section class="view hidden" id="view-comparativo">
+        <div class="view-head">
+          <h1>Comparativo de sedes</h1>
+          <p>Comparación cruzada entre las sedes de Clínica Dolormed y Redes IMAT, con análisis vertical y horizontal.</p>
+        </div>
+
+        <div class="card">
+          <h3>Tendencia mensual por sede — admisionado y facturado</h3>
+          <p class="hint">Pasa el cursor sobre cualquier punto para ver el detalle de cada sede seleccionada en ese mes.</p>
+          <div class="chart-box tall"><canvas id="chartSedes"></canvas></div>
+        </div>
+
+        <div class="card">
+          <h3>Análisis vertical — participación de cada sede sobre el total admisionado y facturado</h3>
+          <div class="table-wrap"><table class="table" id="tablaVertical"></table></div>
+        </div>
+
+        <div class="card">
+          <h3>Análisis horizontal — variación mensual (%) por sede</h3>
+          <p class="hint">Formato paralelo: cada fila es un mes, con las columnas de cada sede una junto a la otra para comparar directamente. La variación % sigue siendo independiente por sede (cada una contra su propio mes anterior).</p>
+          <div class="table-wrap"><table class="table" id="tablaHorizontal"></table></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Admisionado por tipo de cliente, comparado por sede</h3>
+            <p class="hint">Una barra de color por cada sede filtrada — mismos colores que en la tendencia mensual.</p>
+            <div class="chart-box tall"><canvas id="chartCategoriaAdmisionado"></canvas></div>
+          </div>
+          <div class="card">
+            <h3>Facturado por tipo de cliente, comparado por sede</h3>
+            <p class="hint">Una barra de color por cada sede filtrada — mismos colores que en la tendencia mensual.</p>
+            <div class="chart-box tall"><canvas id="chartCategoriaFacturado"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head-row">
+            <h3>Resumen por cliente — comparación entre sedes</h3>
+          </div>
+          <p class="hint">Muestra, para cada cliente (n_clie), lo admisionado, facturado, radicado y pendiente por radicar en cada sede. Respeta todos los filtros activos, incluido el de "Sede" — si filtras una o varias sedes, solo esas se comparan; si no filtras ninguna, se comparan todas las que tengan datos cargados.</p>
+          <input type="text" id="buscarCliente" class="input-buscar" placeholder="Buscar cliente… (ej. SURA, ARL, PARTICULAR)">
+          <div class="table-wrap"><table class="table" id="tablaResumenCliente"></table></div>
+          <div class="pager">
+            <button class="btn btn-ghost" id="btnClientePagAnt">‹ Anterior</button>
+            <span id="clientePagInfo">—</span>
+            <button class="btn btn-ghost" id="btnClientePagSig">Siguiente ›</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VISTA: DETALLE ================= -->
+      <section class="view hidden" id="view-detalle">
+        <div class="view-head">
+          <h1>Detalle y análisis</h1>
+          <p>Comparación por sede del tipo de atención, con variación porcentual entre las sedes filtradas.</p>
+        </div>
+
+        <div class="card">
+          <h3>Valor por tipo de atención, comparado entre sedes</h3>
+          <p class="hint">La columna original de centro de costo ("n_cost") viene vacía en el archivo de origen; esta sección usa la sub-atención ("n_ate01") como aproximación operativa, desglosada por sede (se muestran todos los tipos de atención, sin omitir ninguno por valor mínimo). Cada sede tiene un color de fondo distinto y una línea divisoria gruesa para separarla claramente de la siguiente. Las columnas "Δ%" comparan cada sede contra la sede anterior en la tabla.</p>
+          <div class="table-wrap"><table class="table" id="tablaAtencion"></table></div>
+        </div>
+      </section>
+
+      <!-- ================= VISTA: CARGAR ================= -->
+      <section class="view hidden" id="view-cargar">
+        <div class="view-head">
+          <h1>Cargar información</h1>
+          <p>Sube el archivo Excel de cada sede de forma independiente. La fórmula de clasificación se recalcula automáticamente al procesar el archivo, y los datos se integran al informe global sin afectar a las demás sedes.</p>
+        </div>
+
+        <div class="card upload-card">
+          <div class="upload-row">
+            <div class="filter-group">
+              <label>Clínica</label>
+              <select id="upClinica"></select>
+            </div>
+            <div class="filter-group">
+              <label>Sede</label>
+              <select id="upSede"></select>
+            </div>
+            <div class="filter-group grow">
+              <label>Archivo Excel (.xlsx)</label>
+              <input type="file" id="upArchivo" accept=".xlsx,.xls">
+            </div>
+            <button class="btn btn-primary" id="btnProcesar">Procesar y cargar</button>
+          </div>
+          <div id="upEstado" class="upload-estado"></div>
+        </div>
+
+        <div class="card">
+          <h3>Sedes cargadas</h3>
+          <div class="table-wrap"><table class="table" id="tablaSedesCargadas"></table></div>
+        </div>
+
+        <div class="card danger-zone">
+          <h3>Zona de mantenimiento</h3>
+          <p>Borra toda la información cargada en este navegador (no afecta los archivos originales).</p>
+          <button class="btn btn-danger" id="btnBorrarTodo">Borrar todos los datos cargados</button>
+        </div>
+      </section>
+
+      <!-- ================= VISTA: ACERCA ================= -->
+      <section class="view hidden" id="view-acerca">
+        <div class="view-head">
+          <h1>Acerca del informe</h1>
+        </div>
+        <div class="card">
+          <h3>Fórmula de clasificación</h3>
+          <p>Cada fila se clasifica automáticamente al cargar el archivo, replicando la fórmula original de Excel a partir del estado de la admisión (<code>e_admi</code>), el número de factura (<code>n_fact</code>), el valor admisionado (<code>v_admi</code>), la cuenta de cobro (<code>n_cxc</code>) y el resultado de radicación (<code>Fecha radicacion</code>). El resultado nunca se toma de la columna cacheada del Excel: se recalcula siempre.</p>
+          <h3>Categoría de cliente</h3>
+          <p>ARL, SOAT, Medicina Prepagada, Pólizas de Salud y Particulares se infieren del texto de la entidad (<code>n_clie</code>). Las entidades que no encajan en ninguna de esas categorías (convenios empresariales, colegios, iglesias, etc.) se agrupan como "Convenios / Empresas".</p>
+          <h3>Almacenamiento</h3>
+          <p>Toda la información se guarda localmente en el navegador (IndexedDB). No se envía a ningún servidor. Si cambias de computador o navegador, deberás volver a cargar los archivos de cada sede.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="js/config.js"></script>
+<script src="js/classify.js"></script>
+<script src="js/excelParser.js"></script>
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/state.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/multiselect.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

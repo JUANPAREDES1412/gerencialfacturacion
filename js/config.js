@@ -149,6 +149,6 @@ APP.THEME = {
    "Project URL" y "anon public" key.
    ---------------------------------------------------------------------------- */
 APP.SUPABASE = {
-  url: "",      // ej: "https://abcdefghijk.supabase.co"
-  anonKey: ""   // ej: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9......"
+  url: "https://kqvmqdjjdciidhnuwupf.supabase.co",      // ej: "https://abcdefghijk.supabase.co"
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtxdm1xZGpqZGNpaWRobnV3dXBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMzU0NTksImV4cCI6MjA5OTcxMTQ1OX0.ZTlAPiZlTZriLa-qMrmyd9HVmhYk-TeuR8oY3Lbau3E"   // ej: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9......"
 };

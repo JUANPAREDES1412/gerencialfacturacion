@@ -46,7 +46,40 @@ Por defecto la app guarda los datos únicamente en el navegador donde los cargas
 7. Sube ese archivo actualizado a GitHub (edítalo directamente en GitHub: entra al archivo → ícono de lápiz "Edit" → pega los cambios → "Commit changes"), o vuelve a subir todo el proyecto si prefieres.
 8. Listo — recarga la app publicada. En la barra lateral verás el indicador cambiar de **"Local (solo este navegador)"** a **"Supabase (compartido)"**. Desde ese momento, cualquier archivo que cargues desde cualquier computador queda visible para todos los que abran el enlace.
 
-**Importante sobre seguridad:** esta clave `anon` queda visible en el código de la página publicada (es pública por diseño de Supabase, no es la clave secreta). Las políticas del script `schema.sql` permiten leer y escribir a cualquiera que tenga esa clave — es decir, cualquiera que conozca la URL pública de tu app podría, en teoría, cargar o borrar datos. Para un informe interno de uso controlado (enlace no publicitado) esto suele ser suficiente, pero si quieres restringirlo más (por ejemplo, exigir que la persona inicie sesión antes de poder cargar o borrar datos), Supabase tiene un sistema de autenticación (Supabase Auth) que se puede añadir después — dilo y lo incorporamos.
+**Nota de seguridad:** desde que se agregó autenticación (ver sección 1.3), esta clave `anon` ya NO permite leer ni escribir datos por sí sola — solo sirve para iniciar sesión. Sin una cuenta con rol asignado, nadie puede ver ni cargar información, aunque conozca la URL de tu app.
+
+---
+
+### 1.3 Autenticación y usuarios (quién puede ver y quién puede cargar datos)
+
+Una vez conectado Supabase (paso 1.2) y corrido `supabase/schema.sql`, la app exige iniciar sesión — nadie ve ningún dato sin una cuenta con rol asignado. Hay dos roles:
+
+- **admin**: puede ver todo, cargar/eliminar datos de sedes, y gestionar usuarios.
+- **consulta**: solo puede ver los informes (no ve "Cargar información" ni "Gestión de usuarios").
+
+Esta restricción está aplicada a nivel de base de datos (Row Level Security), no solo escondida en la pantalla — así que no se puede saltar editando el navegador.
+
+**Crear tus 2 administradores iniciales:**
+
+1. En Supabase, ve a **Authentication → Users → "Add user"**. Crea la cuenta del primer administrador: correo + contraseña (puedes marcar "Auto Confirm User" para que no tenga que confirmar por correo). Repite para el segundo administrador.
+2. Ve a **SQL Editor → New query**. Al final de `supabase/schema.sql` verás un bloque comentado:
+   ```sql
+   -- insert into perfiles (email, rol) values
+   --   ('admin1@tudominio.com', 'admin'),
+   --   ('admin2@tudominio.com', 'admin')
+   -- on conflict (email) do update set rol = excluded.rol;
+   ```
+3. Copia esas 3 líneas en una consulta nueva, quita los `--` del principio, reemplaza los correos por los que usaste en el paso 1, y dale **Run**.
+4. Listo — entra a tu app publicada con ese correo y esa contraseña.
+
+**Agregar más usuarios después (desde la app, sin volver a tocar SQL):**
+
+1. Como administrador, primero crea la cuenta de acceso de la persona en Supabase (**Authentication → Users → Add user**) — dale el correo y una contraseña temporal, y compártesela por otro medio (no por la app).
+2. En la app, entra a **"Gestión de usuarios"** (solo visible para administradores).
+3. Escribe ese mismo correo, un nombre (opcional), elige el rol — **"Consulta"** para quien solo debe ver el informe, **"Administrador"** para quien también debe poder cargar datos — y clic en **Guardar**.
+4. Esa persona ya puede entrar a la app con el correo y contraseña que le diste, desde cualquier computador o navegador.
+
+Para quitarle el acceso a alguien, usa el botón "Eliminar" junto a su nombre en "Gestión de usuarios" (esto le quita el rol, con lo que ya no podrá ver nada aunque su cuenta de acceso siga existiendo en Supabase — si además quieres borrar la cuenta por completo, hazlo en Authentication → Users).
 
 ---
 
@@ -102,6 +135,7 @@ informe-gerencial-ips/
 │   ├── excelParser.js        # Lectura de archivos .xlsx con SheetJS
 │   ├── db.js                 # Persistencia LOCAL con IndexedDB (modo por defecto)
 │   ├── supabase.js           # Persistencia REMOTA con Supabase (modo compartido, opcional)
+│   ├── auth.js                # Autenticación y roles (admin / consulta) — requiere Supabase
 │   ├── storage.js            # Decide automáticamente local vs. remoto
 │   ├── state.js              # Filtros globales y funciones de agregación
 │   ├── charts.js              # Formato de cifras y gráficos (Chart.js)
@@ -152,6 +186,12 @@ Donde:
 
 Esta traducción a JavaScript (`js/classify.js`) se validó fila por fila contra el archivo real de **117.628 registros** entregado: **100% de coincidencia** con la columna `Clasificacion` cacheada en el Excel de origen, y **100% de coincidencia** con la columna `OBSERVACION` (Aseguradora/Particular).
 
+### Deduplicación: la misma línea exportada dos veces (antes y después de facturar)
+
+Auditando el archivo completo se encontró que **201 líneas de servicio** (de 117.628) están exportadas **dos veces**: una vez antes de facturarse (`n_fact=0`) y otra vez ya facturada (mismo `n_admi`, misma `f_admi`, mismo `v_admi` y mismo `n_ate01`, solo cambia el número de factura). Si se sumaran ambas copias, esas admisiones quedarían contadas dos veces — esto representaba una sobre-contabilización de **≈$135 millones sobre $87.091 millones** (0,15% del total admisionado del archivo).
+
+Por eso **todo el informe se ancla a `n_admi + f_admi`**: al cargar cada archivo (`js/excelParser.js`, función `colapsarLineasDuplicadas`), se agrupa por `n_admi + f_admi + v_admi + n_ate01` y se conserva únicamente la línea en su estado más avanzado (facturada, si existe esa versión) — así cada línea de servicio se cuenta una sola vez. El mensaje que aparece tras cargar un archivo indica cuántas líneas se colapsaron por este motivo.
+
 ---
 
 ## 5.1 Regla de valores: todo sale de `v_admi`
@@ -200,7 +240,8 @@ En el archivo entregado, la columna `n_cost` (centro de costo, columna AP) llega
   - Distribución por tipo de cliente.
   - **Resumen por cliente**: admisionado, facturado, radicado y pendiente por radicar de cada cliente, desglosado por sede.
 - **Detalle y análisis**: tabla de tipo de atención comparada por sede (pivote), **sin omitir ningún tipo de atención** sea cual sea su valor, e incluyendo columnas de **variación % entre sedes** (cada sede se compara contra la sede anterior de la tabla). La sección de "Detalle de admisiones" (tabla fila por fila) se retiró de esta vista.
-- **Cargar información**: carga/actualización/eliminación de datos por sede.
+- **Cargar información**: carga/actualización/eliminación de datos por sede (solo administradores si hay autenticación activa).
+- **Gestión de usuarios** (solo visible para administradores, requiere Supabase conectado): asignar rol admin/consulta a cuentas ya creadas en Supabase — ver sección 1.3.
 
 Todos los filtros de la barra superior (Clínica, Sede, Año, Mes, Tipo de cliente y **Clasificación**) son listas desplegables con casillas de verificación: haz clic para abrir, marca una o varias opciones, y haz clic afuera para cerrar. El filtro de **Clasificación** permite filtrar por cualquiera de las categorías de la fórmula de negocio (Radicado entidad, Facturado con CXC, Particular, etc.).
 

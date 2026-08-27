@@ -68,6 +68,9 @@
       <button class="nav-item" data-view="detalle">
         <span class="nav-ico">◆</span> Detalle y análisis
       </button>
+      <button class="nav-item" data-view="auditoria">
+        <span class="nav-ico">◆</span> Auditoría / Validación
+      </button>
       <button class="nav-item" data-view="cargar" id="navCargar">
         <span class="nav-ico">◆</span> Cargar información
       </button>
@@ -229,6 +232,54 @@
         </div>
       </section>
 
+      <!-- ================= VISTA: AUDITORÍA ================= -->
+      <section class="view hidden" id="view-auditoria">
+        <div class="view-head">
+          <h1>Auditoría / Validación</h1>
+          <p>Sube de nuevo el Excel real de una sede (el mismo archivo que usas para cargarla) para comparar, automáticamente, sus cifras contra lo que el informe tiene guardado en este momento para esa sede — sin modificar nada. Sirve para detectar si algo no está cuadrando.</p>
+        </div>
+
+        <div class="card upload-card">
+          <div class="upload-row">
+            <div class="filter-group">
+              <label>Sede a verificar</label>
+              <select id="audSede"></select>
+            </div>
+            <div class="filter-group grow">
+              <label>Excel de esa sede</label>
+              <input type="file" id="audArchivo" accept=".xlsx,.xls">
+            </div>
+            <button class="btn btn-primary" id="btnAuditar">Comparar contra el informe</button>
+          </div>
+          <div id="audEstado" class="upload-estado"></div>
+        </div>
+
+        <div id="audResultados" class="hidden">
+          <div class="card">
+            <h3>Totales — Excel vs. Informe</h3>
+            <div class="table-wrap"><table class="table" id="audTablaTotales"></table></div>
+          </div>
+
+          <div class="card">
+            <h3>En el Excel pero AUSENTES del informe</h3>
+            <p class="hint">Combinaciones de admisión + cliente que están en el archivo pero no se ven en el informe cargado. Si aparece algo aquí, vuelve a cargar esta sede desde "Cargar información".</p>
+            <div class="table-wrap"><table class="table" id="audTablaSoloArchivo"></table></div>
+          </div>
+
+          <div class="card">
+            <h3>En el informe pero AUSENTES del Excel</h3>
+            <p class="hint">Puede pasar si el informe tiene datos de una versión anterior del archivo. Si esperabas que ya no estuvieran, vuelve a cargar esta sede para reemplazarlos.</p>
+            <div class="table-wrap"><table class="table" id="audTablaSoloInforme"></table></div>
+          </div>
+
+          <div class="card">
+            <h3>Mismo cliente y admisión, pero con VALOR distinto</h3>
+            <p class="hint">La combinación existe en ambos lados, pero la suma de "v_admi" no coincide.</p>
+            <div class="table-wrap"><table class="table" id="audTablaValorDistinto"></table></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ================= VISTA: CARGAR ================= -->
       <section class="view hidden" id="view-cargar">
         <div class="view-head">
@@ -322,8 +373,8 @@
         <div class="card">
           <h3>Fórmula de clasificación</h3>
           <p>Cada fila se clasifica automáticamente al cargar el archivo, replicando la fórmula original de Excel a partir del estado de la admisión (<code>e_admi</code>), el número de factura (<code>n_fact</code>), el valor admisionado (<code>v_admi</code>), la cuenta de cobro (<code>n_cxc</code>) y el resultado de radicación (<code>Fecha radicacion</code>). El resultado nunca se toma de la columna cacheada del Excel: se recalcula siempre.</p>
-          <h3>Todo se ancla a número de admisión + fecha de admisión</h3>
-          <p>El sistema de origen a veces exporta la misma línea de servicio dos veces: una vez antes de facturarse y otra vez ya facturada (mismo <code>n_admi</code>, misma <code>f_admi</code>, mismo valor y mismo tipo de atención, pero con distinto número de factura). Si se sumaran ambas copias, esa admisión quedaría contada dos veces. Por eso, al cargar cada archivo, la app agrupa por <code>n_admi + f_admi + v_admi + n_ate01</code> y conserva solo el estado más avanzado de cada línea (la versión ya facturada, si existe) — así el valor admisionado nunca se duplica. Cuando esto ocurre, el mensaje de carga te avisa cuántas líneas se colapsaron.</p>
+          <h3>Todo se ancla a número de admisión + fecha + cliente</h3>
+          <p>El sistema de origen a veces exporta la misma línea de servicio dos veces: una vez antes de facturarse y otra vez ya facturada (mismo <code>n_admi</code>, misma <code>f_admi</code>, mismo cliente y mismo valor, pero con distinto número de factura). Si se sumaran ambas copias, esa admisión quedaría contada dos veces. <strong>Esto es distinto de una admisión dividida entre dos clientes</strong> (por ejemplo un SOAT repartido entre dos aseguradoras) — eso es normal y ambos clientes se conservan. Por eso, al cargar cada archivo, la app agrupa por <code>n_admi + f_admi + n_clie + v_admi</code> (los cuatro a la vez) y solo colapsa cuando coinciden exactamente — así el valor admisionado nunca se duplica, pero tampoco se pierde ningún cliente legítimo. Cuando esto ocurre, el mensaje de carga te avisa cuántas líneas se colapsaron.</p>
           <h3>Categoría de cliente</h3>
           <p>ARL, SOAT, Medicina Prepagada, Pólizas de Salud y Particulares se infieren del texto de la entidad (<code>n_clie</code>). Las entidades que no encajan en ninguna de esas categorías (convenios empresariales, colegios, iglesias, etc.) se agrupan como "Convenios / Empresas".</p>
           <h3>Acceso y usuarios</h3>
